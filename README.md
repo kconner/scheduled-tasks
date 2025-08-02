@@ -72,7 +72,7 @@ Supported intervals:
 
 ## Logs
 
-All task executions are logged to `~/scheduled-tasks/logs/<task-name>.log`
+All task executions are logged to `<repo-location>/logs/<task-name>.log`
 
 Each log entry includes:
 - Timestamp
@@ -92,7 +92,7 @@ Each log entry includes:
 ## Troubleshooting
 
 If a task isn't running:
-1. Check if it's loaded: `./scheduled-tasks --list`
-2. View logs: `./scheduled-tasks --logs <task-name>`
+1. Check if it's loaded: `./scheduled-tasks list`
+2. View logs: `./scheduled-tasks logs <task-name>`
 3. Check launchd errors: `tail /tmp/com.user.scheduled.<task-name>.stderr`
 4. Verify the command works manually: `./run-task.sh test "your command"`

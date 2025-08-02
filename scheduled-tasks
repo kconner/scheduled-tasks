@@ -20,8 +20,7 @@ usage() {
     echo "Intervals:"
     echo "  hourly    - Run every hour"
     echo "  daily     - Run every 24 hours"
-    echo "  30min     - Run every 30 minutes"
-    echo "  <number>  - Run every N seconds"
+    echo "  <number>  - Run every N minutes"
     echo ""
     echo "Examples:"
     echo "  $0                    # Show all tasks"
@@ -36,8 +35,7 @@ interval_to_seconds() {
     case "$1" in
         hourly) echo "3600" ;;
         daily) echo "86400" ;;
-        30min) echo "1800" ;;
-        *) echo "$1" ;;
+        *) echo "$((${1} * 60))" ;;  # Convert minutes to seconds
     esac
 }
 
@@ -203,6 +201,19 @@ case "$1" in
             exit 1
         fi
         
+        # Validate interval
+        if [[ "$interval" != "hourly" && "$interval" != "daily" ]]; then
+            if [[ ! "$interval" =~ ^[0-9]+$ ]]; then
+                echo "Error: Interval must be 'hourly', 'daily', or a number of minutes"
+                exit 1
+            fi
+            # Check for reasonable interval range (1 minute to 1 week in minutes)
+            if [[ "$interval" -lt 1 || "$interval" -gt 10080 ]]; then
+                echo "Error: Custom interval must be between 1 and 10080 minutes (1 week)"
+                exit 1
+            fi
+        fi
+        
         # Convert interval to seconds
         interval_seconds=$(interval_to_seconds "$interval")
         
@@ -222,7 +233,13 @@ case "$1" in
         
         if launchctl list | grep -q "com.user.scheduled.$task_name"; then
             echo "Task '$task_name' created and loaded successfully!"
-            echo "It will run every $interval_seconds seconds."
+            if [[ "$interval" == "hourly" ]]; then
+                echo "It will run every hour."
+            elif [[ "$interval" == "daily" ]]; then
+                echo "It will run every 24 hours."
+            else
+                echo "It will run every $interval minutes."
+            fi
             echo ""
             echo "To view logs: $0 logs $task_name"
             echo "To remove: $0 remove $task_name"

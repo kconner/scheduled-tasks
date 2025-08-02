@@ -31,9 +31,8 @@ Clone this repository to any location. The scripts will work from wherever they'
 
 Supported intervals:
 - `hourly` - Run every hour
-- `daily` - Run every 24 hours  
-- `30min` - Run every 30 minutes
-- `<number>` - Run every N seconds
+- `daily` - Run every 24 hours
+- `<number>` - Run every N minutes
 
 ### Examples
 
@@ -44,11 +43,11 @@ Supported intervals:
 # Clean temporary files daily
 ./scheduled-tasks create clean-temp "rm -rf ~/Downloads/*.tmp" daily
 
-# Check for updates every 30 minutes
-./scheduled-tasks create check-updates "brew update" 30min
+# Custom interval - check for updates every 30 minutes
+./scheduled-tasks create check-updates "brew update" 30
 
-# Custom interval - ping server every 5 minutes (300 seconds)
-./scheduled-tasks create ping-check "ping -c 1 example.com" 300
+# Ping server every 5 minutes
+./scheduled-tasks create ping-check "ping -c 1 example.com" 5
 ```
 
 ### View task logs

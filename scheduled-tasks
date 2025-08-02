@@ -1,11 +1,6 @@
 #!/bin/bash
 
 # Script to create and manage scheduled tasks using launchd
-# Usage: 
-#   scheduled-tasks create <task-name> <command> <interval>
-#   scheduled-tasks list
-#   scheduled-tasks remove <task-name>
-#   scheduled-tasks logs <task-name>
 
 # Get the absolute path of this script's directory
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

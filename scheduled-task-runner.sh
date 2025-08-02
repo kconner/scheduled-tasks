@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Generic wrapper script for scheduled tasks
-# Usage: wrapper.sh <task-name> <command>
+# Usage: scheduled-task-runner.sh <task-name> <command>
 
 TASK_NAME="$1"
 shift
 COMMAND="$@"
 
-# Set up paths
-SCRIPT_DIR="$HOME/scheduled-tasks"
+# Get the absolute path of this script's directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/logs"
 LOG_FILE="$LOG_DIR/${TASK_NAME}.log"
 

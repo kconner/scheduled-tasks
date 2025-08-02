@@ -7,7 +7,8 @@
 #   create-task.sh --remove <task-name>
 #   create-task.sh --logs <task-name>
 
-SCRIPT_DIR="$HOME/scheduled-tasks"
+# Get the absolute path of this script's directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLIST_DIR="$HOME/Library/LaunchAgents"
 WRAPPER_PATH="$SCRIPT_DIR/scheduled-task-runner.sh"
 

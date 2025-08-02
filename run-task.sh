@@ -23,10 +23,10 @@ fi
 
 TASK_NAME="$1"
 shift
-COMMAND="$@"
+COMMAND="$*"
 
 # Get the absolute path of this script's directory
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/logs"
 LOG_FILE="$LOG_DIR/${TASK_NAME}.log"
 

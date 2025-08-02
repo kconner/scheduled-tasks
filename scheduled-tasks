@@ -58,7 +58,8 @@ create_plist() {
     local plist_file="$PLIST_DIR/com.user.scheduled.$task_name.plist"
     
     # Escape XML special characters in command
-    local escaped_command=$(escape_xml "$command")
+    local escaped_command
+    escaped_command=$(escape_xml "$command")
     
     # Create symlink for this task
     local symlink_path="$SCRIPT_DIR/tasks/$task_name"
@@ -112,7 +113,8 @@ list_tasks() {
     for plist in "$PLIST_DIR"/com.user.scheduled.*.plist; do
         if [[ -f "$plist" ]]; then
             found=true
-            local basename=$(basename "$plist" .plist)
+            local basename
+            basename=$(basename "$plist" .plist)
             local task_name=${basename#com.user.scheduled.}
             local status="unloaded"
             

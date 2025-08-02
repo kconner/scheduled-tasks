@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# where is the script? even if it's symlinked
+# Locate the folder containing the script, even if called through a symlink
 script_folder="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
 
 launch_agents_folder="$HOME/Library/LaunchAgents"
@@ -10,31 +10,16 @@ run_task_path="$script_folder/run-task.sh"
 bundle_id_prefix="com.kconner.scheduled-tasks"
 
 usage() {
-    echo "Usage:"
-    echo "  $0                    # List all scheduled tasks"
-    echo "  $0 list               # List all scheduled tasks"
-    echo "  $0 create <task-name> <interval> <command>"
-    echo "  $0 remove <task-name>"
-    echo "  $0 logs <task-name>"
-    echo "  $0 help"
+    echo "Usage: $0 [subcommand] [arguments]"
     echo ""
-    echo "Intervals:"
-    echo "  hourly    - Run every hour"
-    echo "  daily     - Run every 24 hours"
-    echo "  <number>  - Run every N minutes"
+    echo "subcommands: list (default), create, remove, logs, help"
     echo ""
-    echo "Examples:"
-    echo "  $0                    # Show all tasks"
-    echo "  $0 create backup-docs hourly \"rsync -av ~/Documents /backup/\""
-    echo "  $0 create cleanup daily \"rm -f /tmp/*.tmp\""
-    echo "  $0 remove backup-docs"
-    echo "  $0 logs backup-docs"
+    echo "$0 create <task-name> (daily|hourly|<number of minutes>) <command>"
+    echo "$0 remove <task-name>"
+    echo "$0 logs <task-name>"
 }
 
 list_tasks() {
-    echo "Scheduled tasks:"
-    echo ""
-    
     local found=false
     for plist in "$launch_agents_folder"/"$bundle_id_prefix".*.plist; do
         if [[ -f "$plist" ]]; then
@@ -53,19 +38,19 @@ list_tasks() {
     done
     
     if [[ "$found" = false ]]; then
-        echo "No scheduled tasks found."
+        echo "No scheduled tasks."
     fi
 }
 
-interval_to_seconds() {
+seconds_for_task_interval() {
     case "$1" in
-        hourly) echo "3600" ;;
         daily) echo "86400" ;;
-        *) echo "$(($1 * 60))" ;;  # Convert minutes to seconds
+        hourly) echo "3600" ;;
+        *) echo "$(($1 * 60))" ;;
     esac
 }
 
-escape_xml() {
+escaped_text_for_xml() {
     local text="$1"
     text="${text//&/&amp;}"
     text="${text//</&lt;}"
@@ -77,17 +62,21 @@ escape_xml() {
 
 create_plist() {
     local task_name="$1"
-    local command="$2"
-    local interval_seconds="$3"
+    local interval_seconds="$2"
+    local command="$3"
     local plist_file="$launch_agents_folder/$bundle_id_prefix.$task_name.plist"
-    
-    # Escape XML special characters in command
+   
     local escaped_command
-    escaped_command=$(escape_xml "$command")
+    escaped_command=$(escaped_text_for_xml "$command")
     
-    # Create symlink for this task
+    # Use a symlink to run-task.sh named after the task, so users can tell
+    # multiple background tasks apart in System Settings.
+    
     local symlink_path="$script_folder/tasks/$task_name"
     ln -sf "$run_task_path" "$symlink_path"
+    
+    # Note that in PATH we're including Homebrew's usual binary locations,
+    # in case your script is going to need utilities there.
     
     cat > "$plist_file" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -119,7 +108,7 @@ create_plist() {
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
 </dict>
 </plist>
@@ -133,56 +122,48 @@ create_task() {
     local interval="$2"
     local command="$3"
     
-    # Validate task name
     if [[ ! "$task_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
         echo "Error: Task name must contain only letters, numbers, hyphens, and underscores"
         return 1
     fi
     
-    # Validate interval
-    if [[ "$interval" != "hourly" && "$interval" != "daily" ]]; then
+    if [[ "$interval" != "daily" && "$interval" != "hourly" ]]; then
         if [[ ! "$interval" =~ ^[0-9]+$ ]]; then
-            echo "Error: Interval must be 'hourly', 'daily', or a number of minutes"
+            echo "Error: Interval must be 'daily', 'hourly', or a number of minutes"
             return 1
         fi
-        # Check for reasonable interval range (1 minute to 1 week in minutes)
+        
+        # Check for a sane interval range (1 minute to 1 week)
         if [[ "$interval" -lt 1 || "$interval" -gt 10080 ]]; then
             echo "Error: Custom interval must be between 1 and 10080 minutes (1 week)"
             return 1
         fi
     fi
     
-    # Convert interval to seconds
     local interval_seconds
-    interval_seconds=$(interval_to_seconds "$interval")
+    interval_seconds=$(seconds_for_task_interval "$interval")
     
-    # Check if task already exists
     if [[ -f "$launch_agents_folder/$bundle_id_prefix.$task_name.plist" ]]; then
         echo "Error: Task '$task_name' already exists. Remove it first with 'remove'"
         return 1
     fi
     
-    # Create plist file
     local plist_file
-    plist_file=$(create_plist "$task_name" "$command" "$interval_seconds")
+    plist_file=$(create_plist "$task_name" "$interval_seconds" "$command")
     echo "Created plist: $plist_file"
     
-    # Load the task
-    echo "Loading task..."
+    echo "Loading task…"
     launchctl load "$plist_file"
     
     if launchctl list | grep -q "$bundle_id_prefix.$task_name"; then
-        echo "Task '$task_name' created and loaded successfully!"
-        if [[ "$interval" == "hourly" ]]; then
-            echo "It will run every hour."
+        echo "Created and loaded task '$task_name'."
         elif [[ "$interval" == "daily" ]]; then
             echo "It will run every 24 hours."
+        if [[ "$interval" == "hourly" ]]; then
+            echo "It will run every hour."
         else
             echo "It will run every $interval minutes."
         fi
-        echo ""
-        echo "To view logs: $0 logs $task_name"
-        echo "To remove: $0 remove $task_name"
     else
         echo "Error: Failed to load task"
         return 1
@@ -198,22 +179,19 @@ remove_task() {
         return 1
     fi
     
-    # Unload if loaded
     if launchctl list | grep -q "$bundle_id_prefix.$task_name"; then
-        echo "Unloading task..."
+        echo "Unloading task…"
         launchctl unload "$plist_file"
     fi
     
-    # Remove plist file
     rm -f "$plist_file"
     
-    # Remove symlink
     local symlink_path="$script_folder/tasks/$task_name"
     if [[ -L "$symlink_path" ]]; then
         unlink "$symlink_path"
     fi
     
-    echo "Task '$task_name' removed successfully"
+    echo "Task '$task_name' removed."
 }
 
 show_logs() {

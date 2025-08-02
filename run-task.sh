@@ -22,7 +22,7 @@ task_name="$1"
 shift
 command="$*"
 
-# where is the script? even if it's symlinked
+# Locate the folder containing the script, even if called through a symlink
 script_folder="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
 
 logs_folder="$script_folder/logs"
@@ -36,7 +36,6 @@ log() {
 
 log "=== '$task_name'"
 log "command: $command"
-# log "Environment: USER=$USER, HOME=$HOME, PATH=$PATH"
 
 stdout_path=$(mktemp)
 stderr_path=$(mktemp)

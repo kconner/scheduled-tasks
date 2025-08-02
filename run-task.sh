@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Generic wrapper script for scheduled tasks
-# Usage: scheduled-task-runner.sh <task-name> <command>
+# Usage: run-task.sh <task-name> <command>
 
 TASK_NAME="$1"
 shift

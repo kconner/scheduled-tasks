@@ -19,14 +19,14 @@ Clone this repository to any location. The scripts will work from wherever they'
 ### List scheduled tasks
 
 ```bash
-./scheduled-tasks.sh                    # Default: lists all tasks
-./scheduled-tasks.sh --list             # Explicit list command
+./scheduled-tasks                    # Default: lists all tasks
+./scheduled-tasks list               # Explicit list command
 ```
 
 ### Create a scheduled task
 
 ```bash
-./scheduled-tasks.sh --create <task-name> "<command>" <interval>
+./scheduled-tasks create <task-name> "<command>" <interval>
 ```
 
 Supported intervals:
@@ -39,28 +39,28 @@ Supported intervals:
 
 ```bash
 # Backup documents every hour
-./scheduled-tasks.sh --create backup-docs "rsync -av ~/Documents /Volumes/Backup/" hourly
+./scheduled-tasks create backup-docs "rsync -av ~/Documents /Volumes/Backup/" hourly
 
 # Clean temporary files daily
-./scheduled-tasks.sh --create clean-temp "rm -rf ~/Downloads/*.tmp" daily
+./scheduled-tasks create clean-temp "rm -rf ~/Downloads/*.tmp" daily
 
 # Check for updates every 30 minutes
-./scheduled-tasks.sh --create check-updates "brew update" 30min
+./scheduled-tasks create check-updates "brew update" 30min
 
 # Custom interval - ping server every 5 minutes (300 seconds)
-./scheduled-tasks.sh --create ping-check "ping -c 1 example.com" 300
+./scheduled-tasks create ping-check "ping -c 1 example.com" 300
 ```
 
 ### View task logs
 
 ```bash
-./scheduled-tasks.sh --logs <task-name>
+./scheduled-tasks logs <task-name>
 ```
 
 ### Remove a task
 
 ```bash
-./scheduled-tasks.sh --remove <task-name>
+./scheduled-tasks remove <task-name>
 ```
 
 ## How it works
@@ -92,7 +92,7 @@ Each log entry includes:
 ## Troubleshooting
 
 If a task isn't running:
-1. Check if it's loaded: `./create-task.sh --list`
-2. View logs: `./create-task.sh --logs <task-name>`
+1. Check if it's loaded: `./scheduled-tasks --list`
+2. View logs: `./scheduled-tasks --logs <task-name>`
 3. Check launchd errors: `tail /tmp/com.user.scheduled.<task-name>.stderr`
-4. Verify the command works manually: `./scheduled-task-runner.sh test "your command"`
+4. Verify the command works manually: `./run-task.sh test "your command"`

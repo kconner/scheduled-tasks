@@ -10,17 +10,17 @@
 # Get the absolute path of this script's directory
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLIST_DIR="$HOME/Library/LaunchAgents"
-WRAPPER_PATH="$SCRIPT_DIR/scheduled-task-runner.sh"
+WRAPPER_PATH="$SCRIPT_DIR/run-task.sh"
 
 # Function to display usage
 usage() {
     echo "Usage:"
     echo "  $0                    # List all scheduled tasks"
-    echo "  $0 --list             # List all scheduled tasks"
-    echo "  $0 --create <task-name> <command> <interval>"
-    echo "  $0 --remove <task-name>"
-    echo "  $0 --logs <task-name>"
-    echo "  $0 --help"
+    echo "  $0 list               # List all scheduled tasks"
+    echo "  $0 create <task-name> <command> <interval>"
+    echo "  $0 remove <task-name>"
+    echo "  $0 logs <task-name>"
+    echo "  $0 help"
     echo ""
     echo "Intervals:"
     echo "  hourly    - Run every hour"
@@ -30,10 +30,10 @@ usage() {
     echo ""
     echo "Examples:"
     echo "  $0                    # Show all tasks"
-    echo "  $0 --create backup-docs \"rsync -av ~/Documents /backup/\" hourly"
-    echo "  $0 --create cleanup \"rm -f /tmp/*.tmp\" daily"
-    echo "  $0 --remove backup-docs"
-    echo "  $0 --logs backup-docs"
+    echo "  $0 create backup-docs \"rsync -av ~/Documents /backup/\" hourly"
+    echo "  $0 create cleanup \"rm -f /tmp/*.tmp\" daily"
+    echo "  $0 remove backup-docs"
+    echo "  $0 logs backup-docs"
 }
 
 # Function to convert interval to seconds
@@ -186,11 +186,11 @@ case "$1" in
         list_tasks
         ;;
     
-    --list)
+    list)
         list_tasks
         ;;
     
-    --create)
+    create)
         # Create new task
         if [[ $# -lt 4 ]]; then
             echo "Error: Insufficient arguments"
@@ -213,7 +213,7 @@ case "$1" in
         
         # Check if task already exists
         if [[ -f "$PLIST_DIR/com.user.scheduled.$task_name.plist" ]]; then
-            echo "Error: Task '$task_name' already exists. Remove it first with --remove"
+            echo "Error: Task '$task_name' already exists. Remove it first with 'remove'"
             exit 1
         fi
         
@@ -229,15 +229,15 @@ case "$1" in
             echo "Task '$task_name' created and loaded successfully!"
             echo "It will run every $interval_seconds seconds."
             echo ""
-            echo "To view logs: $0 --logs $task_name"
-            echo "To remove: $0 --remove $task_name"
+            echo "To view logs: $0 logs $task_name"
+            echo "To remove: $0 remove $task_name"
         else
             echo "Error: Failed to load task"
             exit 1
         fi
         ;;
     
-    --remove)
+    remove)
         if [[ -z "$2" ]]; then
             echo "Error: Task name required"
             usage
@@ -246,7 +246,7 @@ case "$1" in
         remove_task "$2"
         ;;
     
-    --logs)
+    logs)
         if [[ -z "$2" ]]; then
             echo "Error: Task name required"
             usage
@@ -255,7 +255,7 @@ case "$1" in
         show_logs "$2"
         ;;
     
-    --help|-h)
+    help|--help|-h)
         usage
         ;;
     

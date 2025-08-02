@@ -7,6 +7,8 @@ script_folder="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
 launch_agents_folder="$HOME/Library/LaunchAgents"
 run_task_path="$script_folder/run-task.sh"
 
+bundle_id_prefix="com.kconner.scheduled-tasks"
+
 usage() {
     echo "Usage:"
     echo "  $0                    # List all scheduled tasks"
@@ -34,15 +36,15 @@ list_tasks() {
     echo ""
     
     local found=false
-    for plist in "$launch_agents_folder"/com.user.scheduled.*.plist; do
+    for plist in "$launch_agents_folder"/"$bundle_id_prefix".*.plist; do
         if [[ -f "$plist" ]]; then
             found=true
             local basename
             basename=$(basename "$plist" .plist)
-            local task_name=${basename#com.user.scheduled.}
+            local task_name=${basename#"$bundle_id_prefix."}
             local status="unloaded"
             
-            if launchctl list | grep -q "com.user.scheduled.$task_name"; then
+            if launchctl list | grep -q "$bundle_id_prefix.$task_name"; then
                 status="loaded"
             fi
             
@@ -77,7 +79,7 @@ create_plist() {
     local task_name="$1"
     local command="$2"
     local interval_seconds="$3"
-    local plist_file="$launch_agents_folder/com.user.scheduled.$task_name.plist"
+    local plist_file="$launch_agents_folder/$bundle_id_prefix.$task_name.plist"
     
     # Escape XML special characters in command
     local escaped_command
@@ -93,7 +95,7 @@ create_plist() {
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.user.scheduled.$task_name</string>
+    <string>$bundle_id_prefix.$task_name</string>
     
     <key>ProgramArguments</key>
     <array>
@@ -109,10 +111,10 @@ create_plist() {
     <false/>
     
     <key>StandardOutPath</key>
-    <string>/tmp/com.user.scheduled.$task_name.stdout</string>
+    <string>/tmp/$bundle_id_prefix.$task_name.stdout</string>
     
     <key>StandardErrorPath</key>
-    <string>/tmp/com.user.scheduled.$task_name.stderr</string>
+    <string>/tmp/$bundle_id_prefix.$task_name.stderr</string>
     
     <key>EnvironmentVariables</key>
     <dict>
@@ -155,7 +157,7 @@ create_task() {
     interval_seconds=$(interval_to_seconds "$interval")
     
     # Check if task already exists
-    if [[ -f "$launch_agents_folder/com.user.scheduled.$task_name.plist" ]]; then
+    if [[ -f "$launch_agents_folder/$bundle_id_prefix.$task_name.plist" ]]; then
         echo "Error: Task '$task_name' already exists. Remove it first with 'remove'"
         return 1
     fi
@@ -169,7 +171,7 @@ create_task() {
     echo "Loading task..."
     launchctl load "$plist_file"
     
-    if launchctl list | grep -q "com.user.scheduled.$task_name"; then
+    if launchctl list | grep -q "$bundle_id_prefix.$task_name"; then
         echo "Task '$task_name' created and loaded successfully!"
         if [[ "$interval" == "hourly" ]]; then
             echo "It will run every hour."
@@ -189,7 +191,7 @@ create_task() {
 
 remove_task() {
     local task_name="$1"
-    local plist_file="$launch_agents_folder/com.user.scheduled.$task_name.plist"
+    local plist_file="$launch_agents_folder/$bundle_id_prefix.$task_name.plist"
     
     if [[ ! -f "$plist_file" ]]; then
         echo "Error: Task '$task_name' not found"
@@ -197,7 +199,7 @@ remove_task() {
     fi
     
     # Unload if loaded
-    if launchctl list | grep -q "com.user.scheduled.$task_name"; then
+    if launchctl list | grep -q "$bundle_id_prefix.$task_name"; then
         echo "Unloading task..."
         launchctl unload "$plist_file"
     fi

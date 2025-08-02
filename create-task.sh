@@ -51,6 +51,10 @@ create_plist() {
     local interval_seconds="$3"
     local plist_file="$PLIST_DIR/com.user.scheduled.$task_name.plist"
     
+    # Create symlink for this task
+    local symlink_path="$SCRIPT_DIR/tasks/$task_name"
+    ln -sf "$WRAPPER_PATH" "$symlink_path"
+    
     cat > "$plist_file" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -61,7 +65,7 @@ create_plist() {
     
     <key>ProgramArguments</key>
     <array>
-        <string>$WRAPPER_PATH</string>
+        <string>$symlink_path</string>
         <string>$task_name</string>
         <string>$command</string>
     </array>
@@ -134,6 +138,13 @@ remove_task() {
     
     # Remove plist file
     rm -f "$plist_file"
+    
+    # Remove symlink
+    local symlink_path="$SCRIPT_DIR/tasks/$task_name"
+    if [[ -L "$symlink_path" ]]; then
+        unlink "$symlink_path"
+    fi
+    
     echo "Task '$task_name' removed successfully"
 }
 

@@ -12,15 +12,21 @@ A simple system for scheduling terminal commands that run reliably, even when yo
 
 ## Installation
 
-The system is already set up in `~/scheduled-tasks/`. No additional installation needed.
+Clone this repository to any location. The scripts will work from wherever they're located.
 
 ## Usage
+
+### List scheduled tasks
+
+```bash
+./scheduled-tasks.sh                    # Default: lists all tasks
+./scheduled-tasks.sh --list             # Explicit list command
+```
 
 ### Create a scheduled task
 
 ```bash
-cd ~/scheduled-tasks
-./create-task.sh <task-name> "<command>" <interval>
+./scheduled-tasks.sh --create <task-name> "<command>" <interval>
 ```
 
 Supported intervals:
@@ -33,34 +39,28 @@ Supported intervals:
 
 ```bash
 # Backup documents every hour
-./create-task.sh backup-docs "rsync -av ~/Documents /Volumes/Backup/" hourly
+./scheduled-tasks.sh --create backup-docs "rsync -av ~/Documents /Volumes/Backup/" hourly
 
 # Clean temporary files daily
-./create-task.sh clean-temp "rm -rf ~/Downloads/*.tmp" daily
+./scheduled-tasks.sh --create clean-temp "rm -rf ~/Downloads/*.tmp" daily
 
 # Check for updates every 30 minutes
-./create-task.sh check-updates "brew update" 30min
+./scheduled-tasks.sh --create check-updates "brew update" 30min
 
 # Custom interval - ping server every 5 minutes (300 seconds)
-./create-task.sh ping-check "ping -c 1 example.com" 300
-```
-
-### List all tasks
-
-```bash
-./create-task.sh --list
+./scheduled-tasks.sh --create ping-check "ping -c 1 example.com" 300
 ```
 
 ### View task logs
 
 ```bash
-./create-task.sh --logs <task-name>
+./scheduled-tasks.sh --logs <task-name>
 ```
 
 ### Remove a task
 
 ```bash
-./create-task.sh --remove <task-name>
+./scheduled-tasks.sh --remove <task-name>
 ```
 
 ## How it works
@@ -95,4 +95,4 @@ If a task isn't running:
 1. Check if it's loaded: `./create-task.sh --list`
 2. View logs: `./create-task.sh --logs <task-name>`
 3. Check launchd errors: `tail /tmp/com.user.scheduled.<task-name>.stderr`
-4. Verify the command works manually: `~/scheduled-tasks/scheduled-task-runner.sh test "your command"`
+4. Verify the command works manually: `./scheduled-task-runner.sh test "your command"`

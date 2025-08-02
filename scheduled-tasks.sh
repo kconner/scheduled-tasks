@@ -15,10 +15,12 @@ WRAPPER_PATH="$SCRIPT_DIR/scheduled-task-runner.sh"
 # Function to display usage
 usage() {
     echo "Usage:"
-    echo "  $0 <task-name> <command> <interval>"
-    echo "  $0 --list"
+    echo "  $0                    # List all scheduled tasks"
+    echo "  $0 --list             # List all scheduled tasks"
+    echo "  $0 --create <task-name> <command> <interval>"
     echo "  $0 --remove <task-name>"
     echo "  $0 --logs <task-name>"
+    echo "  $0 --help"
     echo ""
     echo "Intervals:"
     echo "  hourly    - Run every hour"
@@ -27,9 +29,9 @@ usage() {
     echo "  <number>  - Run every N seconds"
     echo ""
     echo "Examples:"
-    echo "  $0 backup-docs \"rsync -av ~/Documents /backup/\" hourly"
-    echo "  $0 cleanup \"rm -f /tmp/*.tmp\" daily"
-    echo "  $0 --list"
+    echo "  $0                    # Show all tasks"
+    echo "  $0 --create backup-docs \"rsync -av ~/Documents /backup/\" hourly"
+    echo "  $0 --create cleanup \"rm -f /tmp/*.tmp\" daily"
     echo "  $0 --remove backup-docs"
     echo "  $0 --logs backup-docs"
 }
@@ -44,12 +46,26 @@ interval_to_seconds() {
     esac
 }
 
+# Function to escape XML special characters
+escape_xml() {
+    local text="$1"
+    text="${text//&/&amp;}"
+    text="${text//</&lt;}"
+    text="${text//>/&gt;}"
+    text="${text//\"/&quot;}"
+    text="${text//\'/&apos;}"
+    echo "$text"
+}
+
 # Function to create plist file
 create_plist() {
     local task_name="$1"
     local command="$2"
     local interval_seconds="$3"
     local plist_file="$PLIST_DIR/com.user.scheduled.$task_name.plist"
+    
+    # Escape XML special characters in command
+    local escaped_command=$(escape_xml "$command")
     
     # Create symlink for this task
     local symlink_path="$SCRIPT_DIR/tasks/$task_name"
@@ -67,7 +83,7 @@ create_plist() {
     <array>
         <string>$symlink_path</string>
         <string>$task_name</string>
-        <string>$command</string>
+        <string>$escaped_command</string>
     </array>
     
     <key>StartInterval</key>
@@ -165,43 +181,26 @@ show_logs() {
 
 # Main logic
 case "$1" in
+    "")
+        # No arguments - list tasks
+        list_tasks
+        ;;
+    
     --list)
         list_tasks
         ;;
     
-    --remove)
-        if [[ -z "$2" ]]; then
-            echo "Error: Task name required"
-            usage
-            exit 1
-        fi
-        remove_task "$2"
-        ;;
-    
-    --logs)
-        if [[ -z "$2" ]]; then
-            echo "Error: Task name required"
-            usage
-            exit 1
-        fi
-        show_logs "$2"
-        ;;
-    
-    --help|-h)
-        usage
-        ;;
-    
-    *)
+    --create)
         # Create new task
-        if [[ $# -lt 3 ]]; then
+        if [[ $# -lt 4 ]]; then
             echo "Error: Insufficient arguments"
             usage
             exit 1
         fi
         
-        task_name="$1"
-        command="$2"
-        interval="$3"
+        task_name="$2"
+        command="$3"
+        interval="$4"
         
         # Validate task name
         if [[ ! "$task_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
@@ -236,5 +235,33 @@ case "$1" in
             echo "Error: Failed to load task"
             exit 1
         fi
+        ;;
+    
+    --remove)
+        if [[ -z "$2" ]]; then
+            echo "Error: Task name required"
+            usage
+            exit 1
+        fi
+        remove_task "$2"
+        ;;
+    
+    --logs)
+        if [[ -z "$2" ]]; then
+            echo "Error: Task name required"
+            usage
+            exit 1
+        fi
+        show_logs "$2"
+        ;;
+    
+    --help|-h)
+        usage
+        ;;
+    
+    *)
+        echo "Error: Unknown option '$1'"
+        usage
+        exit 1
         ;;
 esac

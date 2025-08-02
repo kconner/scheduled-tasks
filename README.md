@@ -15,7 +15,7 @@ Clone this repository to any location. Avoid changing that location while any ta
 ./scheduled-tasks 
 
 # create a task
-./scheduled-tasks create <task-name> "<command>" <interval>
+./scheduled-tasks create <task-name> <interval> "<command>"
 # intervals: daily, hourly, or <number of minutes>
 
 # remove a task

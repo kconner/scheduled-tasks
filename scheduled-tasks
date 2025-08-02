@@ -11,7 +11,7 @@ usage() {
     echo "Usage:"
     echo "  $0                    # List all scheduled tasks"
     echo "  $0 list               # List all scheduled tasks"
-    echo "  $0 create <task-name> <command> <interval>"
+    echo "  $0 create <task-name> <interval> <command>"
     echo "  $0 remove <task-name>"
     echo "  $0 logs <task-name>"
     echo "  $0 help"
@@ -23,8 +23,8 @@ usage() {
     echo ""
     echo "Examples:"
     echo "  $0                    # Show all tasks"
-    echo "  $0 create backup-docs \"rsync -av ~/Documents /backup/\" hourly"
-    echo "  $0 create cleanup \"rm -f /tmp/*.tmp\" daily"
+    echo "  $0 create backup-docs hourly \"rsync -av ~/Documents /backup/\""
+    echo "  $0 create cleanup daily \"rm -f /tmp/*.tmp\""
     echo "  $0 remove backup-docs"
     echo "  $0 logs backup-docs"
 }
@@ -128,8 +128,8 @@ EOF
 
 create_task() {
     local task_name="$1"
-    local command="$2"
-    local interval="$3"
+    local interval="$2"
+    local command="$3"
     
     # Validate task name
     if [[ ! "$task_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
@@ -223,8 +223,7 @@ show_logs() {
         return 1
     fi
     
-    echo "Logs for task '$task_name':"
-    echo "================================"
+    echo "Recent logs for task '$task_name':"
     tail -n 50 "$log_file"
 }
 

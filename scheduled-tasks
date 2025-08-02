@@ -1,13 +1,12 @@
 #!/bin/bash
+set -euo pipefail
 
-# Script to create and manage scheduled tasks using launchd
+# where is the script? even if it's symlinked
+script_folder="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
 
-# Get the absolute path of this script's directory
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLIST_DIR="$HOME/Library/LaunchAgents"
-WRAPPER_PATH="$SCRIPT_DIR/run-task.sh"
+launch_agents_folder="$HOME/Library/LaunchAgents"
+run_task_path="$script_folder/run-task.sh"
 
-# Function to display usage
 usage() {
     echo "Usage:"
     echo "  $0                    # List all scheduled tasks"
@@ -30,16 +29,40 @@ usage() {
     echo "  $0 logs backup-docs"
 }
 
-# Function to convert interval to seconds
+list_tasks() {
+    echo "Scheduled tasks:"
+    echo ""
+    
+    local found=false
+    for plist in "$launch_agents_folder"/com.user.scheduled.*.plist; do
+        if [[ -f "$plist" ]]; then
+            found=true
+            local basename
+            basename=$(basename "$plist" .plist)
+            local task_name=${basename#com.user.scheduled.}
+            local status="unloaded"
+            
+            if launchctl list | grep -q "com.user.scheduled.$task_name"; then
+                status="loaded"
+            fi
+            
+            printf "%-20s [%s]\n" "$task_name" "$status"
+        fi
+    done
+    
+    if [[ "$found" = false ]]; then
+        echo "No scheduled tasks found."
+    fi
+}
+
 interval_to_seconds() {
     case "$1" in
         hourly) echo "3600" ;;
         daily) echo "86400" ;;
-        *) echo "$((${1} * 60))" ;;  # Convert minutes to seconds
+        *) echo "$(($1 * 60))" ;;  # Convert minutes to seconds
     esac
 }
 
-# Function to escape XML special characters
 escape_xml() {
     local text="$1"
     text="${text//&/&amp;}"
@@ -50,20 +73,19 @@ escape_xml() {
     echo "$text"
 }
 
-# Function to create plist file
 create_plist() {
     local task_name="$1"
     local command="$2"
     local interval_seconds="$3"
-    local plist_file="$PLIST_DIR/com.user.scheduled.$task_name.plist"
+    local plist_file="$launch_agents_folder/com.user.scheduled.$task_name.plist"
     
     # Escape XML special characters in command
     local escaped_command
     escaped_command=$(escape_xml "$command")
     
     # Create symlink for this task
-    local symlink_path="$SCRIPT_DIR/tasks/$task_name"
-    ln -sf "$WRAPPER_PATH" "$symlink_path"
+    local symlink_path="$script_folder/tasks/$task_name"
+    ln -sf "$run_task_path" "$symlink_path"
     
     cat > "$plist_file" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -104,37 +126,70 @@ EOF
     echo "$plist_file"
 }
 
-# Function to list all scheduled tasks
-list_tasks() {
-    echo "Scheduled tasks:"
-    echo ""
+create_task() {
+    local task_name="$1"
+    local command="$2"
+    local interval="$3"
     
-    local found=false
-    for plist in "$PLIST_DIR"/com.user.scheduled.*.plist; do
-        if [[ -f "$plist" ]]; then
-            found=true
-            local basename
-            basename=$(basename "$plist" .plist)
-            local task_name=${basename#com.user.scheduled.}
-            local status="unloaded"
-            
-            if launchctl list | grep -q "com.user.scheduled.$task_name"; then
-                status="loaded"
-            fi
-            
-            printf "%-20s [%s]\n" "$task_name" "$status"
+    # Validate task name
+    if [[ ! "$task_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo "Error: Task name must contain only letters, numbers, hyphens, and underscores"
+        return 1
+    fi
+    
+    # Validate interval
+    if [[ "$interval" != "hourly" && "$interval" != "daily" ]]; then
+        if [[ ! "$interval" =~ ^[0-9]+$ ]]; then
+            echo "Error: Interval must be 'hourly', 'daily', or a number of minutes"
+            return 1
         fi
-    done
+        # Check for reasonable interval range (1 minute to 1 week in minutes)
+        if [[ "$interval" -lt 1 || "$interval" -gt 10080 ]]; then
+            echo "Error: Custom interval must be between 1 and 10080 minutes (1 week)"
+            return 1
+        fi
+    fi
     
-    if [[ "$found" = false ]]; then
-        echo "No scheduled tasks found."
+    # Convert interval to seconds
+    local interval_seconds
+    interval_seconds=$(interval_to_seconds "$interval")
+    
+    # Check if task already exists
+    if [[ -f "$launch_agents_folder/com.user.scheduled.$task_name.plist" ]]; then
+        echo "Error: Task '$task_name' already exists. Remove it first with 'remove'"
+        return 1
+    fi
+    
+    # Create plist file
+    local plist_file
+    plist_file=$(create_plist "$task_name" "$command" "$interval_seconds")
+    echo "Created plist: $plist_file"
+    
+    # Load the task
+    echo "Loading task..."
+    launchctl load "$plist_file"
+    
+    if launchctl list | grep -q "com.user.scheduled.$task_name"; then
+        echo "Task '$task_name' created and loaded successfully!"
+        if [[ "$interval" == "hourly" ]]; then
+            echo "It will run every hour."
+        elif [[ "$interval" == "daily" ]]; then
+            echo "It will run every 24 hours."
+        else
+            echo "It will run every $interval minutes."
+        fi
+        echo ""
+        echo "To view logs: $0 logs $task_name"
+        echo "To remove: $0 remove $task_name"
+    else
+        echo "Error: Failed to load task"
+        return 1
     fi
 }
 
-# Function to remove a task
 remove_task() {
     local task_name="$1"
-    local plist_file="$PLIST_DIR/com.user.scheduled.$task_name.plist"
+    local plist_file="$launch_agents_folder/com.user.scheduled.$task_name.plist"
     
     if [[ ! -f "$plist_file" ]]; then
         echo "Error: Task '$task_name' not found"
@@ -151,7 +206,7 @@ remove_task() {
     rm -f "$plist_file"
     
     # Remove symlink
-    local symlink_path="$SCRIPT_DIR/tasks/$task_name"
+    local symlink_path="$script_folder/tasks/$task_name"
     if [[ -L "$symlink_path" ]]; then
         unlink "$symlink_path"
     fi
@@ -159,10 +214,9 @@ remove_task() {
     echo "Task '$task_name' removed successfully"
 }
 
-# Function to show logs for a task
 show_logs() {
     local task_name="$1"
-    local log_file="$SCRIPT_DIR/logs/$task_name.log"
+    local log_file="$script_folder/logs/$task_name.log"
     
     if [[ ! -f "$log_file" ]]; then
         echo "No logs found for task '$task_name'"
@@ -174,108 +228,49 @@ show_logs() {
     tail -n 50 "$log_file"
 }
 
-# Main logic
-case "$1" in
-    "")
-        # No arguments - list tasks
-        list_tasks
-        ;;
-    
-    list)
-        list_tasks
-        ;;
-    
-    create)
-        # Create new task
-        if [[ $# -lt 4 ]]; then
-            echo "Error: Insufficient arguments"
-            usage
-            exit 1
-        fi
+main() {
+    case "${1:-}" in
+        ""|list)
+            list_tasks
+            ;;
         
-        task_name="$2"
-        command="$3"
-        interval="$4"
-        
-        # Validate task name
-        if [[ ! "$task_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-            echo "Error: Task name must contain only letters, numbers, hyphens, and underscores"
-            exit 1
-        fi
-        
-        # Validate interval
-        if [[ "$interval" != "hourly" && "$interval" != "daily" ]]; then
-            if [[ ! "$interval" =~ ^[0-9]+$ ]]; then
-                echo "Error: Interval must be 'hourly', 'daily', or a number of minutes"
+        create)
+            if [[ $# -lt 4 ]]; then
+                echo "Error: Insufficient arguments"
+                usage
                 exit 1
             fi
-            # Check for reasonable interval range (1 minute to 1 week in minutes)
-            if [[ "$interval" -lt 1 || "$interval" -gt 10080 ]]; then
-                echo "Error: Custom interval must be between 1 and 10080 minutes (1 week)"
+            create_task "$2" "$3" "$4"
+            ;;
+        
+        remove)
+            if [[ -z "${2:-}" ]]; then
+                echo "Error: Task name required"
+                usage
                 exit 1
             fi
-        fi
+            remove_task "$2"
+            ;;
         
-        # Convert interval to seconds
-        interval_seconds=$(interval_to_seconds "$interval")
-        
-        # Check if task already exists
-        if [[ -f "$PLIST_DIR/com.user.scheduled.$task_name.plist" ]]; then
-            echo "Error: Task '$task_name' already exists. Remove it first with 'remove'"
-            exit 1
-        fi
-        
-        # Create plist file
-        plist_file=$(create_plist "$task_name" "$command" "$interval_seconds")
-        echo "Created plist: $plist_file"
-        
-        # Load the task
-        echo "Loading task..."
-        launchctl load "$plist_file"
-        
-        if launchctl list | grep -q "com.user.scheduled.$task_name"; then
-            echo "Task '$task_name' created and loaded successfully!"
-            if [[ "$interval" == "hourly" ]]; then
-                echo "It will run every hour."
-            elif [[ "$interval" == "daily" ]]; then
-                echo "It will run every 24 hours."
-            else
-                echo "It will run every $interval minutes."
+        logs)
+            if [[ -z "${2:-}" ]]; then
+                echo "Error: Task name required"
+                usage
+                exit 1
             fi
-            echo ""
-            echo "To view logs: $0 logs $task_name"
-            echo "To remove: $0 remove $task_name"
-        else
-            echo "Error: Failed to load task"
-            exit 1
-        fi
-        ;;
-    
-    remove)
-        if [[ -z "$2" ]]; then
-            echo "Error: Task name required"
+            show_logs "$2"
+            ;;
+        
+        help|--help|-h)
+            usage
+            ;;
+        
+        *)
+            echo "Error: Unknown option '$1'"
             usage
             exit 1
-        fi
-        remove_task "$2"
-        ;;
-    
-    logs)
-        if [[ -z "$2" ]]; then
-            echo "Error: Task name required"
-            usage
-            exit 1
-        fi
-        show_logs "$2"
-        ;;
-    
-    help|--help|-h)
-        usage
-        ;;
-    
-    *)
-        echo "Error: Unknown option '$1'"
-        usage
-        exit 1
-        ;;
-esac
+            ;;
+    esac
+}
+
+main "$@"

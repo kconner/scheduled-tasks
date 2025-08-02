@@ -1,97 +1,34 @@
-# Scheduled Tasks for macOS
+# Scheduled Tasks
 
-A simple system for scheduling terminal commands that run reliably, even when your Mac is asleep.
+A light system for scheduling macOS terminal commands as repeating launchd agents.
 
-## Features
-
-- **Sleep-aware**: Tasks missed during sleep will run when your Mac wakes up
-- **Simple interface**: One command to create scheduled tasks
-- **Logging**: All task executions are logged with timestamps
-- **Multiple intervals**: Support for hourly, daily, 30-minute, or custom intervals
-- **Easy management**: List, view logs, and remove tasks easily
-
-## Installation
-
-Clone this repository to any location. The scripts will work from wherever they're located.
+- A task can run daily, hourly, or every N minutes.
+- Task runs are logged.
+- If one or more runs of a task are missed during sleep, the task runs once when the system wakes.
 
 ## Usage
 
-### List scheduled tasks
+Clone this repository to any location. Avoid changing that location while any tasks exist.
 
-```bash
-./scheduled-tasks                    # Default: lists all tasks
-./scheduled-tasks list               # Explicit list command
-```
+```sh
+# list tasks
+./scheduled-tasks 
 
-### Create a scheduled task
-
-```bash
+# create a task
 ./scheduled-tasks create <task-name> "<command>" <interval>
-```
+# intervals: daily, hourly, or <number of minutes>
 
-Supported intervals:
-- `hourly` - Run every hour
-- `daily` - Run every 24 hours
-- `<number>` - Run every N minutes
-
-### Examples
-
-```bash
-# Backup documents every hour
-./scheduled-tasks create backup-docs "rsync -av ~/Documents /Volumes/Backup/" hourly
-
-# Clean temporary files daily
-./scheduled-tasks create clean-temp "rm -rf ~/Downloads/*.tmp" daily
-
-# Custom interval - check for updates every 30 minutes
-./scheduled-tasks create check-updates "brew update" 30
-
-# Ping server every 5 minutes
-./scheduled-tasks create ping-check "ping -c 1 example.com" 5
-```
-
-### View task logs
-
-```bash
-./scheduled-tasks logs <task-name>
-```
-
-### Remove a task
-
-```bash
+# remove a task
 ./scheduled-tasks remove <task-name>
+
+# read task logs
+./scheduled-tasks logs <task-name>
 ```
 
 ## How it works
 
-1. **launchd integration**: Uses macOS's built-in launchd system for scheduling
-2. **Wrapper script**: All commands run through a wrapper that handles logging
-3. **Plist files**: Each task creates a plist file in `~/Library/LaunchAgents/`
-4. **Sleep handling**: launchd automatically runs missed tasks after wake
+For each created task, a plist in `~/Library/LaunchAgents/` passes the given command to `run-task.sh`. Really it's done through a symlink in the `tasks/` folder, which exists to give a distinct, recognizable name to each task in System Settings and elsewhere.
 
-## Logs
+It's default launchctl behavior to dedupe task runs missed during sleep.
 
-All task executions are logged to `<repo-location>/logs/<task-name>.log`
-
-Each log entry includes:
-- Timestamp
-- Command executed
-- Environment variables
-- Exit status
-- Command output and errors
-
-## Notes
-
-- Task names must contain only letters, numbers, hyphens, and underscores
-- Commands with special characters should be properly quoted
-- The system adds `/usr/local/bin` to PATH for common tools like `brew`
-- Tasks run with your user permissions
-- Logs are never automatically cleaned up - manage them as needed
-
-## Troubleshooting
-
-If a task isn't running:
-1. Check if it's loaded: `./scheduled-tasks list`
-2. View logs: `./scheduled-tasks logs <task-name>`
-3. Check launchd errors: `tail /tmp/com.user.scheduled.<task-name>.stderr`
-4. Verify the command works manually: `./run-task.sh test "your command"`
+`run-task.sh` executes the command and appends to the task's logfile in the `logs/` folder.

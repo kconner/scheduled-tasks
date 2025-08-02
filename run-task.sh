@@ -1,80 +1,69 @@
 #!/bin/bash
+set -u
 
-# Generic wrapper script for scheduled tasks
-
-# Function to display usage
 usage() {
-    echo "Usage: ./run-task.sh <task-name> <command>"
+    echo "Usage: $0 <task-name> <command>"
     echo ""
     echo "This script is used internally by the scheduled-tasks system to run tasks"
     echo "with logging. It's typically called by launchd, not directly by users."
     echo ""
     echo "For testing, you can run:"
-    echo "  ./run-task.sh test-task \"echo 'Hello, world!'\""
+    echo "  $0 test-task \"echo 'Hello, world!'\""
     echo ""
     echo "Logs will be created in: <repo-location>/logs/<task-name>.log"
 }
 
-# Check for help or no arguments
 if [[ "$1" == "--help" || "$1" == "-h" || $# -eq 0 ]]; then
     usage
     exit 0
 fi
 
-TASK_NAME="$1"
+task_name="$1"
 shift
-COMMAND="$*"
+command="$*"
 
-# Get the absolute path of this script's directory
-SCRIPT_DIR="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
-LOG_DIR="$SCRIPT_DIR/logs"
-LOG_FILE="$LOG_DIR/${TASK_NAME}.log"
+# where is the script? even if it's symlinked
+script_folder="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
 
-# Ensure log directory exists
-mkdir -p "$LOG_DIR"
+logs_folder="$script_folder/logs"
+log_path="$logs_folder/${task_name}.log"
 
-# Function to log with timestamp
+mkdir -p "$logs_folder"
+
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$log_path"
 }
 
-# Log start
-log "=== Task '$TASK_NAME' starting ==="
-log "Command: $COMMAND"
-log "Environment: USER=$USER, HOME=$HOME, PATH=$PATH"
+log "=== '$task_name'"
+log "command: $command"
+# log "Environment: USER=$USER, HOME=$HOME, PATH=$PATH"
 
-# Execute the command and capture output
-TEMP_OUTPUT=$(mktemp)
-TEMP_ERROR=$(mktemp)
+stdout_path=$(mktemp)
+stderr_path=$(mktemp)
 
-# Run the command
-if eval "$COMMAND" > "$TEMP_OUTPUT" 2> "$TEMP_ERROR"; then
-    EXIT_CODE=0
-    log "Task completed successfully (exit code: 0)"
+if eval "$command" > "$stdout_path" 2> "$stderr_path"; then
+    exit_code=0
+    log "succeeded (exit code: 0)"
 else
-    EXIT_CODE=$?
-    log "Task failed (exit code: $EXIT_CODE)"
+    exit_code=$?
+    log "failed (exit code: $exit_code)"
 fi
 
-# Log output if any
-if [[ -s "$TEMP_OUTPUT" ]]; then
-    log "--- Output ---"
-    cat "$TEMP_OUTPUT" >> "$LOG_FILE"
-    log "--- End Output ---"
+if [[ -s "$stdout_path" ]]; then
+    log "--- stdout"
+    cat "$stdout_path" >> "$log_path"
+    log "--- end stdout"
 fi
 
-# Log errors if any
-if [[ -s "$TEMP_ERROR" ]]; then
-    log "--- Errors ---"
-    cat "$TEMP_ERROR" >> "$LOG_FILE"
-    log "--- End Errors ---"
+if [[ -s "$stderr_path" ]]; then
+    log "--- stderr"
+    cat "$stderr_path" >> "$log_path"
+    log "--- end stderr"
 fi
 
-# Clean up temp files
-rm -f "$TEMP_OUTPUT" "$TEMP_ERROR"
+rm -f "$stdout_path" "$stderr_path"
 
-# Log end
-log "=== Task '$TASK_NAME' finished ==="
+log "--- end '$task_name'"
 log ""
 
-exit $EXIT_CODE
+exit $exit_code

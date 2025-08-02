@@ -2,6 +2,25 @@
 
 # Generic wrapper script for scheduled tasks
 
+# Function to display usage
+usage() {
+    echo "Usage: ./run-task.sh <task-name> <command>"
+    echo ""
+    echo "This script is used internally by the scheduled-tasks system to run tasks"
+    echo "with logging. It's typically called by launchd, not directly by users."
+    echo ""
+    echo "For testing, you can run:"
+    echo "  ./run-task.sh test-task \"echo 'Hello, world!'\""
+    echo ""
+    echo "Logs will be created in: <repo-location>/logs/<task-name>.log"
+}
+
+# Check for help or no arguments
+if [[ "$1" == "--help" || "$1" == "-h" || $# -eq 0 ]]; then
+    usage
+    exit 0
+fi
+
 TASK_NAME="$1"
 shift
 COMMAND="$@"

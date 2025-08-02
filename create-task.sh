@@ -1,0 +1,228 @@
+#!/bin/bash
+
+# Script to create and manage scheduled tasks using launchd
+# Usage: 
+#   create-task.sh <task-name> <command> <interval>
+#   create-task.sh --list
+#   create-task.sh --remove <task-name>
+#   create-task.sh --logs <task-name>
+
+SCRIPT_DIR="$HOME/scheduled-tasks"
+PLIST_DIR="$HOME/Library/LaunchAgents"
+WRAPPER_PATH="$SCRIPT_DIR/scheduled-task-runner.sh"
+
+# Function to display usage
+usage() {
+    echo "Usage:"
+    echo "  $0 <task-name> <command> <interval>"
+    echo "  $0 --list"
+    echo "  $0 --remove <task-name>"
+    echo "  $0 --logs <task-name>"
+    echo ""
+    echo "Intervals:"
+    echo "  hourly    - Run every hour"
+    echo "  daily     - Run every 24 hours"
+    echo "  30min     - Run every 30 minutes"
+    echo "  <number>  - Run every N seconds"
+    echo ""
+    echo "Examples:"
+    echo "  $0 backup-docs \"rsync -av ~/Documents /backup/\" hourly"
+    echo "  $0 cleanup \"rm -f /tmp/*.tmp\" daily"
+    echo "  $0 --list"
+    echo "  $0 --remove backup-docs"
+    echo "  $0 --logs backup-docs"
+}
+
+# Function to convert interval to seconds
+interval_to_seconds() {
+    case "$1" in
+        hourly) echo "3600" ;;
+        daily) echo "86400" ;;
+        30min) echo "1800" ;;
+        *) echo "$1" ;;
+    esac
+}
+
+# Function to create plist file
+create_plist() {
+    local task_name="$1"
+    local command="$2"
+    local interval_seconds="$3"
+    local plist_file="$PLIST_DIR/com.user.scheduled.$task_name.plist"
+    
+    cat > "$plist_file" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.scheduled.$task_name</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>$WRAPPER_PATH</string>
+        <string>$task_name</string>
+        <string>$command</string>
+    </array>
+    
+    <key>StartInterval</key>
+    <integer>$interval_seconds</integer>
+    
+    <key>RunAtLoad</key>
+    <false/>
+    
+    <key>StandardOutPath</key>
+    <string>/tmp/com.user.scheduled.$task_name.stdout</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/tmp/com.user.scheduled.$task_name.stderr</string>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>
+EOF
+    
+    echo "$plist_file"
+}
+
+# Function to list all scheduled tasks
+list_tasks() {
+    echo "Scheduled tasks:"
+    echo ""
+    
+    local found=false
+    for plist in "$PLIST_DIR"/com.user.scheduled.*.plist; do
+        if [[ -f "$plist" ]]; then
+            found=true
+            local basename=$(basename "$plist" .plist)
+            local task_name=${basename#com.user.scheduled.}
+            local status="unloaded"
+            
+            if launchctl list | grep -q "com.user.scheduled.$task_name"; then
+                status="loaded"
+            fi
+            
+            printf "%-20s [%s]\n" "$task_name" "$status"
+        fi
+    done
+    
+    if [[ "$found" = false ]]; then
+        echo "No scheduled tasks found."
+    fi
+}
+
+# Function to remove a task
+remove_task() {
+    local task_name="$1"
+    local plist_file="$PLIST_DIR/com.user.scheduled.$task_name.plist"
+    
+    if [[ ! -f "$plist_file" ]]; then
+        echo "Error: Task '$task_name' not found"
+        return 1
+    fi
+    
+    # Unload if loaded
+    if launchctl list | grep -q "com.user.scheduled.$task_name"; then
+        echo "Unloading task..."
+        launchctl unload "$plist_file"
+    fi
+    
+    # Remove plist file
+    rm -f "$plist_file"
+    echo "Task '$task_name' removed successfully"
+}
+
+# Function to show logs for a task
+show_logs() {
+    local task_name="$1"
+    local log_file="$SCRIPT_DIR/logs/$task_name.log"
+    
+    if [[ ! -f "$log_file" ]]; then
+        echo "No logs found for task '$task_name'"
+        return 1
+    fi
+    
+    echo "Logs for task '$task_name':"
+    echo "================================"
+    tail -n 50 "$log_file"
+}
+
+# Main logic
+case "$1" in
+    --list)
+        list_tasks
+        ;;
+    
+    --remove)
+        if [[ -z "$2" ]]; then
+            echo "Error: Task name required"
+            usage
+            exit 1
+        fi
+        remove_task "$2"
+        ;;
+    
+    --logs)
+        if [[ -z "$2" ]]; then
+            echo "Error: Task name required"
+            usage
+            exit 1
+        fi
+        show_logs "$2"
+        ;;
+    
+    --help|-h)
+        usage
+        ;;
+    
+    *)
+        # Create new task
+        if [[ $# -lt 3 ]]; then
+            echo "Error: Insufficient arguments"
+            usage
+            exit 1
+        fi
+        
+        task_name="$1"
+        command="$2"
+        interval="$3"
+        
+        # Validate task name
+        if [[ ! "$task_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            echo "Error: Task name must contain only letters, numbers, hyphens, and underscores"
+            exit 1
+        fi
+        
+        # Convert interval to seconds
+        interval_seconds=$(interval_to_seconds "$interval")
+        
+        # Check if task already exists
+        if [[ -f "$PLIST_DIR/com.user.scheduled.$task_name.plist" ]]; then
+            echo "Error: Task '$task_name' already exists. Remove it first with --remove"
+            exit 1
+        fi
+        
+        # Create plist file
+        plist_file=$(create_plist "$task_name" "$command" "$interval_seconds")
+        echo "Created plist: $plist_file"
+        
+        # Load the task
+        echo "Loading task..."
+        launchctl load "$plist_file"
+        
+        if launchctl list | grep -q "com.user.scheduled.$task_name"; then
+            echo "Task '$task_name' created and loaded successfully!"
+            echo "It will run every $interval_seconds seconds."
+            echo ""
+            echo "To view logs: $0 --logs $task_name"
+            echo "To remove: $0 --remove $task_name"
+        else
+            echo "Error: Failed to load task"
+            exit 1
+        fi
+        ;;
+esac

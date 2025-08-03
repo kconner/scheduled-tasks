@@ -12,17 +12,20 @@ Clone this repository to any location. Avoid changing that location while any ta
 
 ```sh
 # list tasks
-./scheduled-tasks 
+./scheduled-tasks
 
-# create a task
-./scheduled-tasks create <task-name> <interval> "<command>"
+# add a task
+./scheduled-tasks add <task-name> <interval> <command>
 # intervals: daily, hourly, or <number of minutes>
 
 # remove a task
 ./scheduled-tasks remove <task-name>
 
-# read task logs
-./scheduled-tasks logs <task-name>
+# get a task's log file path
+./scheduled-tasks log <task-name>
+
+# tail a task's log
+tail -f $(./scheduled-tasks log <task-name>)
 ```
 
 ## How it works

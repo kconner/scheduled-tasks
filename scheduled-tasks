@@ -12,11 +12,11 @@ bundle_id_prefix="com.kconner.scheduled-tasks"
 usage() {
     echo "Usage: $0 [subcommand] [arguments]"
     echo ""
-    echo "subcommands: list (default), create, remove, logs, help"
+    echo "subcommands: list (default), add, remove, log, help"
     echo ""
-    echo "$0 create <task-name> (daily|hourly|<number of minutes>) <command>"
+    echo "$0 add <task-name> (daily|hourly|<number of minutes>) <command>"
     echo "$0 remove <task-name>"
-    echo "$0 logs <task-name>"
+    echo "$0 log <task-name>"
 }
 
 list_tasks() {
@@ -117,7 +117,7 @@ EOF
     echo "$plist_file"
 }
 
-create_task() {
+add_task() {
     local task_name="$1"
     local interval="$2"
     local command="$3"
@@ -154,6 +154,9 @@ create_task() {
     
     echo "Loading task…"
     launchctl load "$plist_file"
+    
+    mkdir -p "$script_folder/logs"
+    touch "$script_folder/logs/$task_name.log"
     
     if launchctl list | grep -q "$bundle_id_prefix.$task_name"; then
         echo "Created and loaded task '$task_name'."
@@ -194,17 +197,9 @@ remove_task() {
     echo "Task '$task_name' removed."
 }
 
-show_logs() {
+echo_log_path() {
     local task_name="$1"
-    local log_file="$script_folder/logs/$task_name.log"
-    
-    if [[ ! -f "$log_file" ]]; then
-        echo "No logs found for task '$task_name'"
-        return 1
-    fi
-    
-    echo "Recent logs for task '$task_name':"
-    tail -n 50 "$log_file"
+    echo "$script_folder/logs/$task_name.log"
 }
 
 main() {
@@ -213,13 +208,13 @@ main() {
             list_tasks
             ;;
         
-        create)
+        add)
             if [[ $# -lt 4 ]]; then
                 echo "Error: Insufficient arguments"
                 usage
                 exit 1
             fi
-            create_task "$2" "$3" "$4"
+            add_task "$2" "$3" "$4"
             ;;
         
         remove)
@@ -231,13 +226,13 @@ main() {
             remove_task "$2"
             ;;
         
-        logs)
+        log)
             if [[ -z "${2:-}" ]]; then
                 echo "Error: Task name required"
                 usage
                 exit 1
             fi
-            show_logs "$2"
+            echo_log_path "$2"
             ;;
         
         help|--help|-h)

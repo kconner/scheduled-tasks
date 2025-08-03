@@ -35,34 +35,27 @@ log() {
 }
 
 log "=== '$task_name'"
-log "command: $command"
+log "--- command: $command"
 
 stdout_path=$(mktemp)
 stderr_path=$(mktemp)
 
-if eval "$command" > "$stdout_path" 2> "$stderr_path"; then
-    exit_code=0
-    log "succeeded (exit code: 0)"
-else
-    exit_code=$?
-    log "failed (exit code: $exit_code)"
-fi
+eval "$command" > "$stdout_path" 2> "$stderr_path"
+exit_status=$?
+log "--- exit status: $exit_status"
 
 if [[ -s "$stdout_path" ]]; then
-    log "--- stdout"
+    log "--- stdout:"
     cat "$stdout_path" >> "$log_path"
-    log "--- end stdout"
 fi
 
 if [[ -s "$stderr_path" ]]; then
-    log "--- stderr"
+    log "--- stderr:"
     cat "$stderr_path" >> "$log_path"
-    log "--- end stderr"
 fi
 
 rm -f "$stdout_path" "$stderr_path"
 
 log "--- end '$task_name'"
-log ""
 
-exit $exit_code
+exit $exit_status

@@ -56,6 +56,6 @@ fi
 
 rm -f "$stdout_path" "$stderr_path"
 
-log "--- end '$task_name'"
+log "--- end"
 
 exit $exit_status

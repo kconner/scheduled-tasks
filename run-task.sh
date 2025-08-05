@@ -34,7 +34,7 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$log_path"
 }
 
-log "=== '$task_name'"
+log "=== $task_name"
 log "--- command: $command"
 
 stdout_path=$(mktemp)

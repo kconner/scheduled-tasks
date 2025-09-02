@@ -72,6 +72,7 @@ create_plist() {
     # Use a symlink to run-task.sh named after the task, so users can tell
     # multiple background tasks apart in System Settings.
     
+    mkdir -p "$script_folder/tasks"
     local symlink_path="$script_folder/tasks/$task_name"
     ln -sf "$run_task_path" "$symlink_path"
     

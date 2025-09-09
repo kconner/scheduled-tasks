@@ -79,6 +79,7 @@ create_plist() {
     # Note that in PATH we're including Homebrew's usual binary locations,
     # in case your script is going to need utilities there.
     
+    mkdir -p "$launch_agents_folder"
     cat > "$plist_file" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
